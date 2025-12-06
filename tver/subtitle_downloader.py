@@ -233,12 +233,37 @@ def merge_vtt_segments(segments: List[str]) -> str:
     return '\n'.join(merged_lines)
 
 
+def download_direct_vtt(vtt_url: str) -> str:
+    """
+    直接下载完整的VTT文件(非m3u8索引)
+
+    Args:
+        vtt_url: 直接的VTT文件URL
+
+    Returns:
+        VTT内容
+
+    Raises:
+        DownloadError: 下载失败
+    """
+    try:
+        print(f"📥 下载VTT字幕文件...")
+        response = requests.get(vtt_url, headers=VTT_HEADERS, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        response.encoding = 'utf-8'
+        print(f"✅ 下载完成")
+        return response.text
+    except requests.RequestException as e:
+        raise DownloadError(f"下载VTT文件失败: {str(e)}")
+
+
 def download_and_merge_subtitles(subtitle_url: str) -> str:
     """
     完整流程:下载索引 → 解析 → 并发下载段 → 合并
+    或者直接下载VTT文件(如果URL指向完整VTT)
 
     Args:
-        subtitle_url: 字幕索引m3u8 URL
+        subtitle_url: 字幕索引m3u8 URL 或 直接VTT URL
 
     Returns:
         合并后的VTT内容
@@ -247,6 +272,10 @@ def download_and_merge_subtitles(subtitle_url: str) -> str:
         DownloadError: 下载失败
         MergeError: 合并失败
     """
+    # 检查是否为直接VTT URL
+    if subtitle_url.endswith('.vtt') or '.vtt?' in subtitle_url:
+        return download_direct_vtt(subtitle_url)
+
     print(f"📥 下载字幕索引...")
     # 1. 下载索引
     m3u8_content = download_subtitle_index(subtitle_url)
